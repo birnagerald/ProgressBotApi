@@ -6,10 +6,15 @@ use Cocur\Slugify\Slugify;
 use Doctrine\ORM\Mapping as ORM;
 use Doctrine\ORM\Mapping\PreUpdate;
 use Doctrine\ORM\Mapping\PrePersist;
+use ApiPlatform\Core\Annotation\ApiResource;
 use Doctrine\ORM\Mapping\HasLifecycleCallbacks;
 
 /**
  * @ORM\Entity(repositoryClass="App\Repository\AnimeRepository")
+ * @ApiResource(
+ *      itemOperations={"get"},
+ *      collectionOperations={"get"}
+ * )
  * @ORM\HasLifecycleCallbacks()
  */
 class Anime
@@ -52,6 +57,11 @@ class Anime
     private $coverImage;
 
     /**
+     * @ORM\ManyToOne(targetEntity="App\Entity\User", inversedBy="animes")
+     */
+    private $owner;
+
+    /**
      * initialisation of slug
      *
      * @ORM\PrePersist
@@ -69,6 +79,8 @@ class Anime
      public function __construct()
     {
         $this->createdAt = new \DateTime();
+        $this->updatedAt = $this->createdAt;
+        $this->initSlug();
     }
 
     public function getId(): ?int
@@ -156,5 +168,17 @@ class Anime
     {
         // update the modified time
         $this->setUpdatedAt(new \DateTime());
+    }
+
+    public function getOwner(): ?User
+    {
+        return $this->owner;
+    }
+
+    public function setOwner(?User $owner): self
+    {
+        $this->owner = $owner;
+
+        return $this;
     }
 }
