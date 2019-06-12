@@ -13,11 +13,34 @@ use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
 
 /**
  * @ApiResource(
- *      itemOperations={"get"},
- *      collectionOperations={"post"},
- *      normalizationContext={
- *          "groups"={"read"}
- *      }
+ *      itemOperations={
+ *          "get"={
+ *              "access_control"="is_granted('ROLE_ADMIN') or (is_granted('IS_AUTHENTICATED_FULLY') and object == user)",
+ *              "normalization_context"={
+ *                  "groups"={"get"}
+ *              }
+ *          },
+ *          "put"={
+ *              "access_control"="is_granted('ROLE_ADMIN') or (is_granted('IS_AUTHENTICATED_FULLY') and object == user)",
+ *              "denormalization_context"={
+ *                  "groups"={"put"}
+ *              },
+ *              "normalization_context"={
+ *                  "groups"={"get"}
+ *              }
+ *          }
+ *      },
+ *      collectionOperations={
+ *          "post"={
+ *              "denormalization_context"={
+ *                  "groups"={"post"}
+ *              },
+ *              "normalization_context"={
+ *                  "groups"={"get"}
+ *              }
+ *           }
+ *      },
+ *      
  * )
  * @ORM\Entity(repositoryClass="App\Repository\UserRepository")
  * @UniqueEntity(
@@ -35,13 +58,13 @@ class User implements UserInterface
      * @ORM\Id()
      * @ORM\GeneratedValue()
      * @ORM\Column(type="integer")
-     * @Groups({"read"})
+     * @Groups({"get"})
      */
     private $id;
 
     /**
      * @ORM\Column(type="string", length=255)
-     * @Groups({"read"})
+     * @Groups({"get", "post", "get-admin"})
      * @Assert\NotBlank()
      * @Assert\Length(
      *      min = 2,
@@ -55,6 +78,7 @@ class User implements UserInterface
     /**
      * @var string The hashed password
      * @ORM\Column(type="string")
+     * @Groups({"post"})
      * @Assert\NotBlank()
      * @Assert\Regex(
      *      pattern="/(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9]).{5,}/",
@@ -64,12 +88,14 @@ class User implements UserInterface
     
     /**
      * @Assert\NotBlank()
+     * @Groups({"put", "post"})
      * @Assert\EqualTo(propertyPath="password", message="Vous n'avez pas tappé le même mot de passe !")
      */
     private $passwordConfirm;
 
     /**
      * @ORM\Column(type="string", length=255)
+     * @Groups({"put", "post", "get-admin", "get-owner"})
      * @Assert\NotBlank()
      * @Assert\Email()
      */
@@ -77,17 +103,19 @@ class User implements UserInterface
 
     /**
      * @ORM\Column(type="json")
+     * @Groups({"get-admin"})
      */
     private $roles = [];
 
     /**
      * @ORM\Column(type="boolean")
+     * @Groups({"get-admin"})
      */
     private $enable;
 
     /**
      * @ORM\OneToMany(targetEntity="App\Entity\Anime", mappedBy="owner")
-     * @Groups({"read"})
+     * @Groups({"get"})
      */
     private $animes;
 
@@ -227,5 +255,10 @@ class User implements UserInterface
         }
 
         return $this;
+    }
+
+    public function __toString()
+    {
+        return (string) $this->getId();
     }
 }

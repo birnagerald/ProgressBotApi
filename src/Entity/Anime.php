@@ -6,14 +6,32 @@ use Cocur\Slugify\Slugify;
 use Doctrine\ORM\Mapping as ORM;
 use Doctrine\ORM\Mapping\PreUpdate;
 use Doctrine\ORM\Mapping\PrePersist;
+use Doctrine\Common\Collections\Collection;
 use ApiPlatform\Core\Annotation\ApiResource;
+use ApiPlatform\Core\Annotation\ApiSubresource;
 use Doctrine\ORM\Mapping\HasLifecycleCallbacks;
+use Doctrine\Common\Collections\ArrayCollection;
+use Symfony\Component\Validator\Constraints as Assert;
 
 /**
  * @ORM\Entity(repositoryClass="App\Repository\AnimeRepository")
  * @ApiResource(
- *      itemOperations={"get"},
- *      collectionOperations={"get"}
+ *      itemOperations={
+ *          "get"={
+ *              "access_control"="is_granted('ROLE_ADMIN') or (is_granted('IS_AUTHENTICATED_FULLY') and object.getOwner() == user)"
+ *          },
+ *          "put"={
+ *              "access_control"="is_granted('ROLE_ADMIN') or (is_granted('IS_AUTHENTICATED_FULLY') and object.getOwner() == user)"
+ *          }
+ *      },
+ *      collectionOperations={
+ *          "get"={
+ *              "access_control"="is_granted('ROLE_ADMIN')"
+ *          },
+ *          "post"={
+ *              "access_control"="is_granted('IS_AUTHENTICATED_FULLY')"
+ *          }
+ *      }
  * )
  * @ORM\HasLifecycleCallbacks()
  */
@@ -28,11 +46,13 @@ class Anime
 
     /**
      * @ORM\Column(type="string", length=255)
+     * @Assert\NotBlank()
      */
     private $title;
 
     /**
      * @ORM\Column(type="integer")
+     * @Assert\NotBlank()
      */
     private $totalEpisode;
 
@@ -62,18 +82,20 @@ class Anime
     private $owner;
 
     /**
-     * initialisation of slug
-     *
-     * @ORM\PrePersist
-     * @ORM\PreUpdate
-     * 
-     * @return void
+     * @ORM\OneToMany(targetEntity="App\Entity\Episode", mappedBy="anime", orphanRemoval=true)
+     * @ApiSubresource()
+     */
+    private $episodes;
+
+    /**
+     * @ORM\PrePersist()
+     * @ORM\PreUpdate()
      */
     public function initSlug(){
-        if(empty($this->slug)){
-            $slugify = new Slugify();
-            $this->slug = $slugify->slugify($this->title);
-        }
+       
+        $slugify = new Slugify();
+        $this->slug = $slugify->slugify($this->title);
+        
     }
 
      public function __construct()
@@ -81,6 +103,7 @@ class Anime
         $this->createdAt = new \DateTime();
         $this->updatedAt = $this->createdAt;
         $this->initSlug();
+        $this->episodes = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -180,5 +203,41 @@ class Anime
         $this->owner = $owner;
 
         return $this;
+    }
+
+    /**
+     * @return Collection|Episode[]
+     */
+    public function getEpisodes(): Collection
+    {
+        return $this->episodes;
+    }
+
+    public function addEpisode(Episode $episode): self
+    {
+        if (!$this->episodes->contains($episode)) {
+            $this->episodes[] = $episode;
+            $episode->setAnime($this);
+        }
+
+        return $this;
+    }
+
+    public function removeEpisode(Episode $episode): self
+    {
+        if ($this->episodes->contains($episode)) {
+            $this->episodes->removeElement($episode);
+            // set the owning side to null (unless already changed)
+            if ($episode->getAnime() === $this) {
+                $episode->setAnime(null);
+            }
+        }
+
+        return $this;
+    }
+
+    public function __toString()
+    {
+        return (string) $this->getId();
     }
 }
