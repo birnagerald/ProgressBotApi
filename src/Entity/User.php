@@ -3,6 +3,7 @@
 namespace App\Entity;
 
 use Doctrine\ORM\Mapping as ORM;
+use App\Controller\ResetPasswordAction;
 use Doctrine\Common\Collections\Collection;
 use ApiPlatform\Core\Annotation\ApiResource;
 use Doctrine\Common\Collections\ArrayCollection;
@@ -10,6 +11,7 @@ use Symfony\Component\Serializer\Annotation\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
+use Symfony\Component\Security\Core\Validator\Constraints\UserPassword;
 
 /**
  * @ApiResource(
@@ -28,7 +30,17 @@ use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
  *              "normalization_context"={
  *                  "groups"={"get"}
  *              }
- *          }
+ *          },
+ *          "put-reset-password"={
+ *             "access_control"="is_granted('ROLE_ADMIN') or (is_granted('IS_AUTHENTICATED_FULLY') and object == user)",
+ *             "method"="PUT",
+ *             "path"="/users/{id}/reset-password",
+ *             "controller"=ResetPasswordAction::class,
+ *             "denormalization_context"={
+ *                 "groups"={"put-reset-password"}
+ *             },
+ *             "validation_groups"={"put-reset-password"}
+ *         }
  *      },
  *      collectionOperations={
  *          "post"={
@@ -45,11 +57,13 @@ use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
  * @ORM\Entity(repositoryClass="App\Repository\UserRepository")
  * @UniqueEntity(
  * fields={"email"},
- * message="Un autre utilisateur utilise déjà cette adresse mail, merci de la modifier !"
+ * message="Un autre utilisateur utilise déjà cette adresse mail, merci de la modifier !",
+ * groups={"post"}
  * )
  * @UniqueEntity(
  * fields={"username"},
- * message="Un autre utilisateur utilise déjà ce pseudo, merci de le modifier !"
+ * message="Un autre utilisateur utilise déjà ce pseudo, merci de le modifier !",
+ * groups={"post"}
  * )
  */
 class User implements UserInterface
@@ -65,12 +79,13 @@ class User implements UserInterface
     /**
      * @ORM\Column(type="string", length=255)
      * @Groups({"get", "post", "get-admin"})
-     * @Assert\NotBlank()
+     * @Assert\NotBlank(groups={"post"})
      * @Assert\Length(
      *      min = 2,
      *      max = 20,
      *      minMessage = "Votre pseudo doit faire plus de {{ limit }} caractères",
-     *      maxMessage = "Votre pseudo doit faire moins de {{ limit }} caractères"
+     *      maxMessage = "Votre pseudo doit faire moins de {{ limit }} caractères",
+     *      groups={"post"}
      * )
      */
     private $username;
@@ -79,25 +94,59 @@ class User implements UserInterface
      * @var string The hashed password
      * @ORM\Column(type="string")
      * @Groups({"post"})
-     * @Assert\NotBlank()
+     * @Assert\NotBlank(groups={"post"})
      * @Assert\Regex(
      *      pattern="/(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9]).{5,}/",
-     *      message="Le mot de passe doit faire plus de 5 caractères et contenir au moins 1 chiffre, 1 majuscule et 1 minuscule")
+     *      message="Le mot de passe doit faire plus de 5 caractères et contenir au moins 1 chiffre, 1 majuscule et 1 minuscule"),
+     *      groups={"post"}
      */
     private $password;
     
     /**
-     * @Assert\NotBlank()
-     * @Groups({"put", "post"})
-     * @Assert\EqualTo(propertyPath="password", message="Vous n'avez pas tappé le même mot de passe !")
+     * @Groups({"post"})
+     * @Assert\NotBlank(groups={"post"})
+     * @Assert\Expression(
+     *     "this.getPassword() === this.getRetypedPassword()",
+     *     message="Passwords does not match",
+     *     groups={"post"}
+     * )
      */
-    private $passwordConfirm;
+    private $retypedPassword;
+    
+    /**
+     * @Groups({"put-reset-password"})
+     * @Assert\NotBlank(groups={"put-reset-password"})
+     * @Assert\Regex(
+     *      pattern="/(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9]).{5,}/",
+     *      message="Le mot de passe doit faire plus de 5 caractères et contenir au moins 1 chiffre, 1 majuscule et 1 minuscule")
+     */
+    private $newPassword;
+
+
+    /**
+     * @Groups({"put-reset-password"})
+     * @Assert\NotBlank(groups={"put-reset-password"})
+     * @Assert\Expression(
+     *     "this.getNewPassword() === this.getNewRetypedPassword()",
+     *     message="Passwords does not match",
+     *     groups={"put-reset-password"}
+     * )
+     */
+    private $newRetypedPassword;
+
+    /**
+     * @Groups({"put-reset-password"})
+     * @Assert\NotBlank(groups={"put-reset-password"})
+     * @UserPassword(groups={"put-reset-password"})
+     */
+    private $oldPassword;
 
     /**
      * @ORM\Column(type="string", length=255)
-     * @Groups({"put", "post", "get-admin", "get-owner"})
-     * @Assert\NotBlank()
-     * @Assert\Email()
+     * @Groups({"post", "put", "get-admin", "get-owner"})
+     * @Assert\NotBlank(groups={"post"})
+     * @Assert\Email(groups={"post", "put"})
+     * @Assert\Length(min=6, max=255, groups={"post", "put"})
      */
     private $email;
 
@@ -118,6 +167,11 @@ class User implements UserInterface
      * @Groups({"get"})
      */
     private $animes;
+
+    /**
+     * @ORM\Column(type="integer", nullable=true)
+     */
+    private $passwordChangeDate;
 
     public function __construct()
     {
@@ -155,16 +209,14 @@ class User implements UserInterface
         return $this;
     }
 
-    public function getPasswordConfirm(): ?string
+    public function getRetypedPassword()
     {
-        return $this->passwordConfirm;
+        return $this->retypedPassword;
     }
 
-    public function setPasswordConfirm(string $passwordConfirm): self
+    public function setRetypedPassword($retypedPassword): void
     {
-        $this->passwordConfirm = $passwordConfirm;
-
-        return $this;
+        $this->retypedPassword = $retypedPassword;
     }
 
     public function getEmail(): ?string
@@ -257,8 +309,50 @@ class User implements UserInterface
         return $this;
     }
 
+    public function getNewPassword(): ?string
+    {
+        return $this->newPassword;
+    }
+
+    public function setNewPassword($newPassword): void
+    {
+        $this->newPassword = $newPassword;
+    }
+
+     public function getNewRetypedPassword(): ?string
+    {
+        return $this->newRetypedPassword;
+    }
+
+    public function setNewRetypedPassword($newRetypedPassword): void
+    {
+        $this->newRetypedPassword = $newRetypedPassword;
+    }
+
+    public function getOldPassword(): ?string
+    {
+        return $this->oldPassword;
+    }
+
+    public function setOldPassword($oldPassword): void
+    {
+        $this->oldPassword = $oldPassword;
+    }
+
+    public function getPasswordChangeDate()
+    {
+        return $this->passwordChangeDate;
+    }
+    
+    public function setPasswordChangeDate($passwordChangeDate): void
+    {
+        $this->passwordChangeDate = $passwordChangeDate;
+    }
+
     public function __toString()
     {
         return (string) $this->getId();
     }
+
+
 }
