@@ -49,7 +49,8 @@ use Symfony\Component\Security\Core\Validator\Constraints\UserPassword;
  *              },
  *              "normalization_context"={
  *                  "groups"={"get"}
- *              }
+ *              },
+ *              "validation_groups"={"post"}
  *           }
  *      },
  *      
@@ -173,11 +174,17 @@ class User implements UserInterface
      */
     private $passwordChangeDate;
 
+    /**
+     * @ORM\Column(type="string", length=40, nullable=true)
+     */
+    private $confirmationToken;
+
     public function __construct()
     {
         $this->enable = false;
         $this->roles = ["ROLE_USER"];
         $this->animes = new ArrayCollection();
+        $this->confirmationToken = null;
     }
 
     public function getId(): ?int
@@ -349,9 +356,19 @@ class User implements UserInterface
         $this->passwordChangeDate = $passwordChangeDate;
     }
 
-    public function __toString()
+    public function getConfirmationToken()
     {
-        return (string) $this->getId();
+        return $this->confirmationToken;
+    }
+    
+    public function setConfirmationToken($confirmationToken): void
+    {
+        $this->confirmationToken = $confirmationToken;
+    }
+
+     public function __toString(): string
+    {
+        return $this->username;
     }
 
 

@@ -10,6 +10,11 @@ use Symfony\Component\Validator\Constraints as Assert;
 
 /**
  * @ApiResource(
+ *      attributes={
+ *         "order"={"number": "ASC"},
+ *         "pagination_client_enabled"=true,
+ *         "pagination_client_items_per_page"=true
+ *      },
  *      itemOperations={
  *          "get"={
  *              "access_control"="is_granted('IS_AUTHENTICATED_FULLY') and object == user"
@@ -230,6 +235,6 @@ class Episode
     
     public function __toString()
     {
-        return (string) $this->getId();
+        return (string) $this->getNumber();
     }
 }
