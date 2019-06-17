@@ -1,6 +1,10 @@
 easy_admin:
-   entities:
-       # List the entity class name you want to manage
-       - App\Entity\Anime
-       - App\Entity\User
-       - App\Entity\Episode
+    entities:
+#        # List the entity class name you want to manage
+        Anime:
+            class: App\Entity\Anime
+        Episode:
+            class: App\Entity\Episode
+        User:
+            class: App\Entity\User
+            controller: App\Controller\UserAdminController
