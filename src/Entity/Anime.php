@@ -26,9 +26,7 @@ use Symfony\Component\Validator\Constraints as Assert;
  *          }
  *      },
  *      collectionOperations={
- *          "get"={
- *              "access_control"="is_granted('ROLE_ADMIN')"
- *          },
+ *          "get",
  *          "post"={
  *              "access_control"="is_granted('IS_AUTHENTICATED_FULLY')"
  *          }
