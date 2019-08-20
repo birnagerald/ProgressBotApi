@@ -21,7 +21,10 @@ use Symfony\Component\Validator\Constraints as Assert;
  *          },
  *          "put"={
  *              "access_control"="is_granted('IS_AUTHENTICATED_FULLY') and object == user"
- *          }
+ *          },
+ *          "delete"={
+ *             "access_control"="is_granted('ROLE_ADMIN') or (is_granted('IS_AUTHENTICATED_FULLY') and object.getOwner() == user)"
+ *         }
  *      },
  *      collectionOperations={
  *          "get"={
