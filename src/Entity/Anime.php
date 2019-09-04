@@ -79,6 +79,11 @@ class Anime
     private $coverImage;
 
     /**
+     * @ORM\Column(type="string", length=255, nullable=true)
+     */
+    private $thumbnail;
+
+    /**
      * @ORM\ManyToOne(targetEntity="App\Entity\User", inversedBy="animes")
      */
     private $owner;
@@ -183,6 +188,18 @@ class Anime
         $this->coverImage = $coverImage;
 
         return $this;
+    }
+
+    public function setThumbnail(?string $thumbnail): self
+    {
+        $this->thumbnail = $thumbnail;
+
+        return $this;
+    }
+
+    public function getThumbnail(): ?string
+    {
+        return $this->thumbnail;
     }
 
     /**
